@@ -17,6 +17,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from ..core.vector import Vec3
+from ..geo import GeoPoint, LocalFrame
 from ..perception.fusion import SurvivorEstimate
 
 AlertSink = Callable[["RescueAlert"], None]
@@ -32,18 +33,22 @@ class RescueAlert:
     corroborating_drones: int
     sim_time: float
     message: str
+    geo: GeoPoint | None = None  # WGS-84 fix, when a LocalFrame is configured
 
     def as_dict(self) -> dict:
-        return {
+        data = {
             "estimate_id": self.estimate_id,
-            "lat_local_x": round(self.position.x, 2),
-            "lat_local_y": round(self.position.y, 2),
+            "local_x": round(self.position.x, 2),
+            "local_y": round(self.position.y, 2),
             "altitude": round(self.position.z, 2),
             "confidence": round(self.confidence, 3),
             "corroborating_drones": self.corroborating_drones,
             "sim_time": round(self.sim_time, 2),
             "message": self.message,
         }
+        if self.geo is not None:
+            data["geo"] = self.geo.as_dict()
+        return data
 
 
 @dataclass
@@ -52,6 +57,7 @@ class AlertDispatcher:
 
     sinks: list[AlertSink] = field(default_factory=list)
     allow_repeat: bool = False
+    frame: LocalFrame | None = None  # set to attach WGS-84 coordinates to alerts
     _fired: set[int] = field(default_factory=set)
     history: list[RescueAlert] = field(default_factory=list)
 
@@ -64,16 +70,22 @@ class AlertDispatcher:
             return None
         if estimate.id in self._fired and not self.allow_repeat:
             return None
+        geo = self.frame.to_geo(estimate.position) if self.frame is not None else None
+        where = (
+            f"{geo.lat:.5f}, {geo.lon:.5f}"
+            if geo is not None
+            else f"({estimate.position.x:.0f}, {estimate.position.y:.0f})"
+        )
         alert = RescueAlert(
             estimate_id=estimate.id,
             position=estimate.position,
             confidence=estimate.confidence,
             corroborating_drones=estimate.corroborated_by,
             sim_time=sim_time,
+            geo=geo,
             message=(
                 f"Suspected survivor #{estimate.id} confirmed at "
-                f"({estimate.position.x:.0f}, {estimate.position.y:.0f}) — "
-                f"dispatch rescue team."
+                f"{where} — dispatch rescue team."
             ),
         )
         self._fired.add(estimate.id)

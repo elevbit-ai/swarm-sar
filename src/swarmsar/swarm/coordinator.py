@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from ..ai.provider import SituationContext
 from ..ai.registry import AIRegistry
 from ..alerting.dispatcher import AlertDispatcher
+from ..autopilot.actuator import Actuator, SimulatedActuator
 from ..core.drone import Drone, DroneStatus
 from ..core.mesh import GraphMesh
 from ..perception.detector import HumanDetector
@@ -59,6 +60,7 @@ class SwarmCoordinator:
     config: MissionConfig = field(default_factory=MissionConfig)
     mesh: GraphMesh = field(default_factory=GraphMesh)
     detection_map: DetectionMap = field(default_factory=DetectionMap)
+    actuator: Actuator = field(default_factory=SimulatedActuator)
     tick: int = 0
     sim_time: float = 0.0
     _controller: CoverageController = field(init=False)
@@ -110,8 +112,8 @@ class SwarmCoordinator:
             self._apply_status(drone, assigned)
             neighbors = self.mesh.reachable_telemetry(drone.id, self.config.gossip_hops)
             target = assigned.get(drone.id)
-            drone.command_velocity(self._controller.command(drone, neighbors, target))
-            drone.step(self.config.dt)
+            desired = self._controller.command(drone, neighbors, target)
+            self.actuator.apply(drone, desired, self.config.dt)
 
         return TickReport(
             tick=self.tick,

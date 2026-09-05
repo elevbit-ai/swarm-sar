@@ -20,12 +20,15 @@ from .__about__ import (
 from .ai.provider import AIProvider, Decision, SituationContext
 from .ai.registry import AIRegistry
 from .alerting.dispatcher import AlertDispatcher, RescueAlert
+from .autopilot.actuator import Actuator, SimulatedActuator
 from .core.drone import Drone, DroneStatus, Telemetry
 from .core.mesh import GraphMesh
 from .core.vector import Vec3
+from .geo import GeoPoint, LocalFrame
 from .perception.detector import Detection, HumanDetector
 from .perception.fusion import DetectionMap, SurvivorEstimate
 from .swarm.coordinator import MissionConfig, SwarmCoordinator
+from .telemetry import DashboardRecorder
 
 __all__ = [
     "Vec3",
@@ -45,6 +48,11 @@ __all__ = [
     "SituationContext",
     "AlertDispatcher",
     "RescueAlert",
+    "Actuator",
+    "SimulatedActuator",
+    "GeoPoint",
+    "LocalFrame",
+    "DashboardRecorder",
     "__version__",
     "__author__",
     "__license__",

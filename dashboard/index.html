@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SwarmSAR Mission Replay</title>
+<style>
+  :root{
+    --bg:#F4F7FB; --panel:#FFFFFF; --line:#D8E0EA; --grid:#E7EDF4;
+    --text:#16202C; --muted:#5A6B7C;
+    --accent:#0EA5E9; --confirm:#0E9F6E; --pending:#D9902B; --alert:#DC4B4B;
+    --track:#D9902B; --returning:#E07A3E; --lost:#9AA7B4;
+    --sensor:rgba(14,165,233,.06); --edge:rgba(90,107,124,.28);
+    --shadow:0 10px 30px -18px rgba(20,32,44,.5);
+  }
+  :root:not([data-theme="light"]){}
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0A0E14; --panel:#111823; --line:#1E2A38; --grid:#152030;
+      --text:#DCE6F2; --muted:#7E8FA2;
+      --accent:#38BDF8; --confirm:#34D399; --pending:#F5B942; --alert:#F26D6D;
+      --track:#F5B942; --returning:#F59E5B; --lost:#54627100;
+      --lost:#5B6875;
+      --sensor:rgba(56,189,248,.06); --edge:rgba(126,143,162,.30);
+      --shadow:0 14px 40px -22px #000;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0A0E14; --panel:#111823; --line:#1E2A38; --grid:#152030;
+    --text:#DCE6F2; --muted:#7E8FA2;
+    --accent:#38BDF8; --confirm:#34D399; --pending:#F5B942; --alert:#F26D6D;
+    --track:#F5B942; --returning:#F59E5B; --lost:#5B6875;
+    --sensor:rgba(56,189,248,.06); --edge:rgba(126,143,162,.30);
+    --shadow:0 14px 40px -22px #000;
+  }
+
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    font-size:14px; line-height:1.5;
+  }
+  .app{
+    max-width:1240px; margin:0 auto; padding:20px 18px 28px;
+    display:flex; flex-direction:column; gap:16px; min-height:100%;
+  }
+
+  header.top{
+    display:flex; align-items:flex-end; justify-content:space-between;
+    gap:16px; flex-wrap:wrap; border-bottom:1px solid var(--line); padding-bottom:14px;
+  }
+  .brand{display:flex; align-items:baseline; gap:12px; flex-wrap:wrap}
+  .brand h1{
+    margin:0; font-size:1.32rem; font-weight:700; letter-spacing:-.01em;
+    font-variant-numeric:tabular-nums;
+  }
+  .brand .tag{
+    font-size:.7rem; text-transform:uppercase; letter-spacing:.16em;
+    color:var(--muted); border:1px solid var(--line); padding:2px 8px; border-radius:999px;
+  }
+  .sub{color:var(--muted); font-size:.86rem}
+  .theme-btn{
+    font:inherit; color:var(--muted); background:transparent;
+    border:1px solid var(--line); border-radius:8px; padding:6px 12px; cursor:pointer;
+  }
+  .theme-btn:hover{color:var(--text); border-color:var(--accent)}
+
+  .grid{
+    display:grid; grid-template-columns:minmax(0,1fr) 288px; gap:16px; align-items:start;
+  }
+  @media (max-width:880px){ .grid{grid-template-columns:1fr} }
+
+  .stage{
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:12px; box-shadow:var(--shadow); position:relative;
+  }
+  canvas{width:100%; height:auto; display:block; border-radius:8px}
+
+  .side{display:flex; flex-direction:column; gap:16px}
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:14px; box-shadow:var(--shadow);
+  }
+  .card h2{
+    margin:0 0 10px; font-size:.72rem; text-transform:uppercase;
+    letter-spacing:.15em; color:var(--muted); font-weight:600;
+  }
+  .stats{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .stat{border:1px solid var(--line); border-radius:10px; padding:8px 10px}
+  .stat .n{font-size:1.5rem; font-weight:700; font-variant-numeric:tabular-nums; line-height:1}
+  .stat .l{font-size:.68rem; text-transform:uppercase; letter-spacing:.1em; color:var(--muted); margin-top:4px}
+  .stat.good .n{color:var(--confirm)} .stat.warn .n{color:var(--pending)} .stat.crit .n{color:var(--alert)}
+
+  .legend{display:flex; flex-direction:column; gap:8px; font-size:.82rem}
+  .legend .row{display:flex; align-items:center; gap:9px; color:var(--muted)}
+  .swatch{width:12px; height:12px; border-radius:50%; flex:none}
+  .swatch.hollow{background:transparent; border:1.5px solid var(--muted)}
+
+  .log{max-height:210px; overflow-y:auto; display:flex; flex-direction:column; gap:7px}
+  .log .a{
+    display:flex; gap:8px; align-items:baseline; font-size:.8rem;
+    border-left:2px solid var(--alert); padding:2px 0 2px 9px;
+  }
+  .log .a .id{font-weight:700; color:var(--alert)}
+  .log .a .co{color:var(--muted); font-variant-numeric:tabular-nums; font-size:.74rem}
+  .log .empty{color:var(--muted); font-size:.8rem; font-style:italic}
+
+  .transport{
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:12px 14px; box-shadow:var(--shadow);
+    display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  }
+  .play{
+    font:inherit; font-weight:600; color:var(--bg); background:var(--accent);
+    border:none; border-radius:8px; padding:8px 16px; cursor:pointer; min-width:92px;
+  }
+  .play:hover{filter:brightness(1.06)}
+  .ghost{
+    font:inherit; color:var(--muted); background:transparent; border:1px solid var(--line);
+    border-radius:8px; padding:8px 11px; cursor:pointer;
+  }
+  .ghost:hover{color:var(--text); border-color:var(--accent)}
+  .ghost[aria-pressed="true"]{color:var(--accent); border-color:var(--accent)}
+  input[type=range]{flex:1; min-width:160px; accent-color:var(--accent)}
+  .clock{font-variant-numeric:tabular-nums; color:var(--muted); min-width:118px; text-align:right; font-size:.85rem}
+  button:focus-visible, input:focus-visible{outline:2px solid var(--accent); outline-offset:2px}
+
+  footer.foot{color:var(--muted); font-size:.76rem; text-align:center; padding-top:2px}
+  footer.foot a{color:var(--accent); text-decoration:none}
+  .err{color:var(--alert); padding:20px; text-align:center}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="top">
+    <div>
+      <div class="brand">
+        <h1>SwarmSAR</h1>
+        <span class="tag">Mission Replay</span>
+      </div>
+      <div class="sub">Graph-coordinated drone swarm locating survivors — search &amp; rescue.</div>
+    </div>
+    <button class="theme-btn" id="theme" type="button">Toggle theme</button>
+  </header>
+
+  <div class="grid">
+    <div class="stage">
+      <canvas id="cv" width="1000" height="750"></canvas>
+    </div>
+
+    <div class="side">
+      <div class="card">
+        <h2>Live status</h2>
+        <div class="stats">
+          <div class="stat"><div class="n" id="s-drones">0</div><div class="l">Drones live</div></div>
+          <div class="stat"><div class="n" id="s-mesh">0</div><div class="l">Mesh islands</div></div>
+          <div class="stat warn"><div class="n" id="s-est">0</div><div class="l">Estimates</div></div>
+          <div class="stat good"><div class="n" id="s-conf">0</div><div class="l">Confirmed</div></div>
+          <div class="stat crit"><div class="n" id="s-alert">0</div><div class="l">Alerts</div></div>
+          <div class="stat"><div class="n" id="s-found">0/0</div><div class="l">Located</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Legend</h2>
+        <div class="legend">
+          <div class="row"><span class="swatch" style="background:var(--accent)"></span>Drone — searching</div>
+          <div class="row"><span class="swatch" style="background:var(--track)"></span>Drone — confirming</div>
+          <div class="row"><span class="swatch" style="background:var(--pending)"></span>Estimate — pending</div>
+          <div class="row"><span class="swatch" style="background:var(--confirm)"></span>Survivor — confirmed</div>
+          <div class="row"><span class="swatch hollow"></span>Ground truth (hidden from swarm)</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Rescue alerts</h2>
+        <div class="log" id="log"><div class="empty">No alerts yet…</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="transport">
+    <button class="play" id="play" type="button">Pause</button>
+    <button class="ghost" id="speed" type="button" aria-pressed="false">1&times;</button>
+    <input type="range" id="scrub" min="0" max="0" value="0" step="1" aria-label="Timeline">
+    <div class="clock"><span id="t">0.0</span>s · <span id="fi">0</span>/<span id="fn">0</span></div>
+  </div>
+
+  <footer class="foot">
+    SwarmSAR by Joaquim Pedro de Morais Filho ·
+    <a href="https://github.com/elevbit-ai/swarm-sar">github.com/elevbit-ai/swarm-sar</a>
+  </footer>
+</div>
+
+<script type="application/json" id="run-data">/*__RUN_DATA__*/null</script>
+<script>
+(function(){
+  "use strict";
+
+  // ---- load run data: inline embed first, else fetch a sibling run.json ----
+  function loadInline(){
+    try{
+      var raw = document.getElementById("run-data").textContent.trim();
+      if(!raw || raw === "null" || raw.indexOf("__RUN_DATA__") !== -1) return null;
+      return JSON.parse(raw);
+    }catch(e){ return null; }
+  }
+
+  function boot(data){
+    if(!data || !data.frames || !data.frames.length){
+      document.querySelector(".stage").innerHTML =
+        '<div class="err">No mission data. Run <code>python examples/record_dashboard.py</code>.</div>';
+      return;
+    }
+    new Replay(data).start();
+  }
+
+  var inline = loadInline();
+  if(inline){ boot(inline); }
+  else{
+    fetch("run.json").then(function(r){ return r.json(); }).then(boot).catch(function(){ boot(null); });
+  }
+
+  // ---------------------------------------------------------------- Replay
+  function Replay(data){
+    this.d = data;
+    this.area = data.meta.area;
+    this.survivors = data.meta.survivors || [];
+    this.frames = data.frames;
+    this.i = 0;
+    this.playing = true;
+    this.speed = 1;
+    this.acc = 0;
+    this.last = 0;
+    this.cv = document.getElementById("cv");
+    this.ctx = this.cv.getContext("2d");
+    this.css = getComputedStyle(document.documentElement);
+    this._bind();
+  }
+
+  Replay.prototype.col = function(name){ return this.css.getPropertyValue(name).trim(); };
+
+  Replay.prototype._bind = function(){
+    var self = this;
+    var scrub = document.getElementById("scrub");
+    scrub.max = this.frames.length - 1;
+    document.getElementById("fn").textContent = this.frames.length;
+
+    document.getElementById("play").addEventListener("click", function(){
+      self.playing = !self.playing;
+      this.textContent = self.playing ? "Pause" : "Play";
+      if(self.playing) self.last = performance.now();
+    });
+    document.getElementById("speed").addEventListener("click", function(){
+      var order = [1, 2, 4, 0.5];
+      self.speed = order[(order.indexOf(self.speed) + 1) % order.length];
+      this.textContent = (self.speed === 0.5 ? "0.5" : self.speed) + "×";
+      this.setAttribute("aria-pressed", self.speed !== 1);
+    });
+    scrub.addEventListener("input", function(){
+      self.i = parseInt(this.value, 10);
+      self.render();
+    });
+    document.getElementById("theme").addEventListener("click", function(){
+      var root = document.documentElement;
+      var cur = root.getAttribute("data-theme");
+      var dark = cur ? cur === "dark"
+        : window.matchMedia("(prefers-color-scheme: dark)").matches;
+      root.setAttribute("data-theme", dark ? "light" : "dark");
+      self.css = getComputedStyle(root);
+      self.render();
+    });
+    window.addEventListener("resize", function(){ self.render(); });
+  };
+
+  Replay.prototype.start = function(){
+    var self = this;
+    this.last = performance.now();
+    function tick(now){
+      var dt = (now - self.last) / 1000; self.last = now;
+      if(self.playing){
+        self.acc += dt * self.speed;
+        while(self.acc >= 0.12){          // ~8 frames/s of recorded data at 1x
+          self.acc -= 0.12;
+          self.i++;
+          if(self.i >= self.frames.length){ self.i = 0; }
+        }
+        document.getElementById("scrub").value = self.i;
+      }
+      self.render();
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  };
+
+  // world (metres) -> canvas (px), north up
+  Replay.prototype.tx = function(x){
+    var a = this.area, pad = 46, W = this.cv.width - pad * 2;
+    return pad + (x - a.min_x) / (a.max_x - a.min_x) * W;
+  };
+  Replay.prototype.ty = function(y){
+    var a = this.area, pad = 46, H = this.cv.height - pad * 2;
+    return pad + (1 - (y - a.min_y) / (a.max_y - a.min_y)) * H;
+  };
+
+  Replay.prototype.render = function(){
+    var ctx = this.ctx, f = this.frames[this.i];
+    ctx.clearRect(0, 0, this.cv.width, this.cv.height);
+    this._grid();
+
+    // ground-truth survivors (what the swarm is trying to find)
+    var self = this;
+    ctx.strokeStyle = this.col("--muted"); ctx.globalAlpha = .5; ctx.lineWidth = 1.5;
+    this.survivors.forEach(function(s){
+      ctx.beginPath(); ctx.arc(self.tx(s[0]), self.ty(s[1]), 7, 0, 7); ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+
+    // sensor footprints
+    var sensorFill = this.col("--sensor");
+    f.drones.forEach(function(d){
+      if(d.status === "lost") return;
+      ctx.fillStyle = sensorFill;
+      ctx.beginPath();
+      ctx.arc(self.tx(d.p[0]), self.ty(d.p[1]), self._r(d.sensor), 0, 7);
+      ctx.fill();
+    });
+
+    // mesh edges
+    var pos = {}; f.drones.forEach(function(d){ pos[d.id] = d; });
+    ctx.strokeStyle = this.col("--edge"); ctx.lineWidth = 1;
+    f.edges.forEach(function(e){
+      var a = pos[e[0]], b = pos[e[1]]; if(!a || !b) return;
+      ctx.beginPath();
+      ctx.moveTo(self.tx(a.p[0]), self.ty(a.p[1]));
+      ctx.lineTo(self.tx(b.p[0]), self.ty(b.p[1]));
+      ctx.stroke();
+    });
+
+    // estimates
+    var alertSet = {}; (f.alerts || []).forEach(function(id){ alertSet[id] = true; });
+    f.estimates.forEach(function(e){
+      var x = self.tx(e.p[0]), y = self.ty(e.p[1]);
+      if(e.confirmed){
+        ctx.fillStyle = self.col("--confirm");
+        ctx.beginPath(); ctx.arc(x, y, 6.5, 0, 7); ctx.fill();
+        if(alertSet[e.id]){
+          var pulse = 10 + 5 * Math.sin(self.i / 2);
+          ctx.strokeStyle = self.col("--alert"); ctx.globalAlpha = .8; ctx.lineWidth = 2;
+          ctx.beginPath(); ctx.arc(x, y, pulse, 0, 7); ctx.stroke(); ctx.globalAlpha = 1;
+        }
+      }else{
+        ctx.strokeStyle = self.col("--pending"); ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(x, y, 5.5, 0, 7); ctx.stroke();
+      }
+    });
+
+    // drones
+    f.drones.forEach(function(d){
+      var x = self.tx(d.p[0]), y = self.ty(d.p[1]);
+      var c = d.status === "tracking" ? self.col("--track")
+            : d.status === "returning" ? self.col("--returning")
+            : d.status === "lost" ? self.col("--lost")
+            : self.col("--accent");
+      ctx.fillStyle = c;
+      ctx.beginPath(); ctx.arc(x, y, 4.5, 0, 7); ctx.fill();
+      ctx.strokeStyle = self.col("--panel"); ctx.lineWidth = 1.5; ctx.stroke();
+    });
+
+    this._hud(f);
+  };
+
+  Replay.prototype._r = function(metres){
+    var a = this.area, pad = 46, W = this.cv.width - pad * 2;
+    return metres / (a.max_x - a.min_x) * W;
+  };
+
+  Replay.prototype._grid = function(){
+    var ctx = this.ctx, a = this.area;
+    ctx.fillStyle = this.col("--grid"); ctx.globalAlpha = .5;
+    var x0 = this.tx(a.min_x), y0 = this.ty(a.max_y);
+    var x1 = this.tx(a.max_x), y1 = this.ty(a.min_y);
+    ctx.fillRect(x0, y0, x1 - x0, y1 - y0);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = this.col("--line"); ctx.lineWidth = 1;
+    ctx.strokeRect(x0, y0, x1 - x0, y1 - y0);
+  };
+
+  Replay.prototype._hud = function(f){
+    var live = 0; f.drones.forEach(function(d){ if(d.status !== "lost") live++; });
+    var confirmed = f.estimates.filter(function(e){ return e.confirmed; });
+    var self = this;
+    // located = distinct ground-truth survivors within 22 m of a confirmed estimate
+    var located = this.survivors.filter(function(s){
+      return confirmed.some(function(e){
+        var dx = e.p[0]-s[0], dy = e.p[1]-s[1];
+        return Math.sqrt(dx*dx+dy*dy) <= 22;
+      });
+    }).length;
+
+    set("s-drones", live);
+    set("s-mesh", meshIslands(f));
+    set("s-est", f.estimates.length);
+    set("s-conf", confirmed.length);
+    set("s-alert", (f.alerts || []).length);
+    set("s-found", located + "/" + this.survivors.length);
+    set("t", f.t.toFixed(1));
+    set("fi", this.i);
+
+    // alert log
+    var log = document.getElementById("log");
+    var alerts = f.alerts || [];
+    if(!alerts.length){ log.innerHTML = '<div class="empty">No alerts yet…</div>'; return; }
+    log.innerHTML = alerts.map(function(id){
+      var e = f.estimates.filter(function(x){ return x.id === id; })[0];
+      var co = e ? e.p[0].toFixed(0) + ", " + e.p[1].toFixed(0) : "—";
+      return '<div class="a"><span class="id">#'+id+'</span>'+
+             '<span>survivor confirmed</span><span class="co">'+co+'</span></div>';
+    }).join("");
+  };
+
+  function meshIslands(f){
+    var adj = {}; f.drones.forEach(function(d){ if(d.status!=="lost") adj[d.id] = []; });
+    f.edges.forEach(function(e){
+      if(adj[e[0]] && adj[e[1]]){ adj[e[0]].push(e[1]); adj[e[1]].push(e[0]); }
+    });
+    var seen = {}, n = 0;
+    Object.keys(adj).forEach(function(k){
+      if(seen[k]) return; n++;
+      var st = [k];
+      while(st.length){ var c = st.pop(); if(seen[c]) continue; seen[c]=1;
+        adj[c].forEach(function(x){ if(!seen[x]) st.push(x); }); }
+    });
+    return n;
+  }
+
+  function set(id, v){ var el = document.getElementById(id); if(el) el.textContent = v; }
+})();
+</script>
+</body>
+</html>

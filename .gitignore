@@ -21,3 +21,6 @@ htmlcov/
 .idea/
 .DS_Store
 Thumbs.db
+
+# CI workflow — restore & push after: gh auth refresh -h github.com -s workflow
+.github/workflows/

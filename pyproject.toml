@@ -36,6 +36,7 @@ dependencies = []
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0", "ruff>=0.4"]
+mavlink = ["pymavlink>=2.4"]
 
 [project.urls]
 Homepage = "https://github.com/elevbit-ai/swarm-sar"

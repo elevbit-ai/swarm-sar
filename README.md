@@ -6,10 +6,17 @@
 </p>
 
 <p align="center">
-  <a href="#"><img alt="CI" src="https://img.shields.io/badge/CI-passing-brightgreen"></a>
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue"></a>
   <img alt="Python" src="https://img.shields.io/badge/python-3.10%2B-blue">
+  <img alt="Tests" src="https://img.shields.io/badge/tests-38%20passing-brightgreen">
   <img alt="Status" src="https://img.shields.io/badge/status-alpha-orange">
+</p>
+
+<p align="center">
+  <a href="https://elevbit-ai.github.io/swarm-sar/"><strong>Website</strong></a> ·
+  <a href="https://elevbit-ai.github.io/swarm-sar/demo.html"><strong>Live demo</strong></a> ·
+  <a href="dashboard/">Dashboard</a> ·
+  <a href="RESPONSIBLE_USE.md">Responsible use</a>
 </p>
 
 ---
@@ -187,16 +194,36 @@ src/swarmsar/
 ├── perception/   # HumanDetector interface, simulated detector, fusion map
 ├── ai/           # AIProvider contract, runtime registry, bundled providers
 ├── alerting/     # rescue AlertDispatcher and sinks
+├── geo/          # local ENU <-> WGS-84 conversion for real coordinates
+├── autopilot/    # actuation backends: simulated + MAVLink/PX4 bridge
+├── telemetry/    # DashboardRecorder — record a mission to JSON
 └── sim/          # deterministic simulation world
-examples/         # runnable end-to-end simulation
+dashboard/        # dependency-free web replay (mesh, coverage, alerts)
+docs/             # project website (GitHub Pages)
+examples/         # runnable simulation + dashboard recorder
 tests/            # unit + integration tests (deterministic)
+```
+
+## Flying real hardware & real coordinates
+
+Swap the in-process motion integrator for a MAVLink autopilot (PX4/ArduPilot,
+real or SITL) without changing any swarm logic, and geolocate every alert:
+
+```python
+from swarmsar import LocalFrame, GeoPoint, AlertDispatcher
+from swarmsar.autopilot import MavlinkActuator
+
+frame = LocalFrame(GeoPoint(lat=-3.1190, lon=-60.0217, alt=92.0))
+dispatcher = AlertDispatcher(frame=frame)          # alerts now carry lat/lon
+actuator = MavlinkActuator("udpin:0.0.0.0:14540")  # pip install "swarmsar[mavlink]"
+# SwarmCoordinator(..., dispatcher=dispatcher, actuator=actuator)
 ```
 
 ## Roadmap
 
-- [ ] MAVLink / PX4 bridge to replace the motion integrator on real hardware
-- [ ] Geographic (WGS-84) coordinates alongside the local ENU frame
-- [ ] Live web dashboard for mesh, coverage and the survivor map
+- [x] MAVLink / PX4 bridge to replace the motion integrator on real hardware
+- [x] Geographic (WGS-84) coordinates alongside the local ENU frame
+- [x] Live web dashboard for mesh, coverage and the survivor map
 - [ ] Reference vision provider (thermal person-detection)
 - [ ] Webhook / radio alert sinks for field integration
 
