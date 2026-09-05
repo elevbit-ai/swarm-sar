@@ -15,6 +15,7 @@
 <p align="center">
   <a href="https://elevbit-ai.github.io/swarm-sar/"><strong>Website</strong></a> ·
   <a href="https://elevbit-ai.github.io/swarm-sar/demo.html"><strong>Live demo</strong></a> ·
+  <a href="https://github.com/elevbit-ai/swarm-sar/releases/tag/v0.1.0"><strong>Promo video</strong></a> ·
   <a href="dashboard/">Dashboard</a> ·
   <a href="RESPONSIBLE_USE.md">Responsible use</a>
 </p>
