@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: "If you use SwarmSAR in your research, please cite it as below."
+title: "SwarmSAR: a graph-coordinated drone swarm framework for search-and-rescue"
+version: 0.1.0
+date-released: 2026-09-05
+license: MIT
+repository-code: "https://github.com/elevbit-ai/swarm-sar"
+authors:
+  - family-names: "de Morais Filho"
+    given-names: "Joaquim Pedro"
+keywords:
+  - drone swarm
+  - search and rescue
+  - multi-agent systems
+  - sensor fusion
